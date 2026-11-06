@@ -1,99 +1,102 @@
 # Dota 2 Market Scanner
 
-Un script JavaScript care inventariază cosmeticele din Dota 2 și estimează valoarea lor pe **Steam Community Market**, direct din consola browserului. Nu necesită instalare, extensii sau chei API.
+A lightweight JavaScript tool for inspecting a Dota 2 inventory and estimating its value on the **Steam Community Market**. Run it directly in your browser's developer console—no dependencies, browser extensions, or API keys required.
 
-> **Read-only:** scriptul doar citește inventarul și prețurile. Nu listează, nu vinde și nu transferă iteme.
+> **Read-only:** This script does not list, sell, trade, or transfer items.
 
-## Funcționalități
+## Features
 
-- Încarcă întregul inventar Dota 2 folosind paginarea Steam (`/inventory/{steamId}/570/2`).
-- Identifică itemele `marketable` și le grupează după `market_hash_name`, păstrând cantitățile.
-- Verifică prețul minim afișat, prețul median și volumul, acolo unde Steam oferă aceste informații.
-- Prioritizează pentru verificare itemele cu rarități sau denumiri precum **Arcana**, **Immortal**, **Legendary**, **Mythical** și anumite treasure chests.
-- Folosește pauze între solicitări și încearcă din nou în cazul unor erori temporare sau al limitării cererilor.
-- Salvează progresul în `localStorage`, separat pentru fiecare SteamID, și evită reverificarea itemelor deja procesate.
-- Estimează valoarea netă după comisioanele Steam și Dota 2.
-- Exportă rezultatele sortate după valoarea netă estimată într-un fișier CSV.
+- Fetches the full Dota 2 inventory through Steam's inventory endpoint, including pagination.
+- Identifies marketable items and groups identical items by `market_hash_name`, preserving quantities.
+- Retrieves the lowest listed price, median price, and reported sales volume when available.
+- Checks higher-priority item categories first (including Arcana, Immortal, Legendary, Mythical, and selected treasure chests).
+- Spaces out price requests and retries some temporary HTTP errors with backoff.
+- Saves scanned prices in `localStorage` so interrupted scans can resume without repeating successful requests.
+- Estimates seller proceeds after Steam and Dota 2 marketplace fees.
+- Exports a CSV report sorted by estimated net value.
 
-## Cerințe
+## Requirements
 
-- Un browser cu DevTools (de exemplu, Chrome sau Firefox).
-- Autentificare în Steam Community.
-- Acces la propriul inventar Dota 2.
+- A modern browser with developer tools.
+- A signed-in Steam Community session with access to your Dota 2 inventory.
 
-## Utilizare
+## Usage
 
-1. Deschide [inventarul Dota 2](https://steamcommunity.com/my/inventory/#570) pe `steamcommunity.com`.
-2. Deschide **Developer Tools → Console** (`F12`).
-3. Copiază conținutul fișierului `dota-market-scanner.js` în consolă și execută-l.
-4. Urmărește progresul afișat periodic (de exemplu, `[50/395]`).
-5. La final, browserul descarcă automat `dota2-market-valuation.csv`.
+1. Open your [Dota 2 inventory](https://steamcommunity.com/my/inventory/#570) on `steamcommunity.com`.
+2. Open **Developer Tools → Console** (`F12`).
+3. Paste and run the contents of `dota-market-scanner.js`.
+4. Watch the progress updates in the console. Large inventories may take a while to scan.
+5. Once the scan finishes, the browser downloads `dota2-market-valuation.csv` automatically.
 
-Poți opri scanarea fără a pierde datele deja salvate:
+To request a stop after the current operation:
 
-```javascript
+```js
 window.dotaScan.stop();
 ```
 
-După o întrerupere sau reîncărcarea paginii, rulează din nou scriptul pentru a relua scanarea din cache-ul local. Pentru a exporta din nou rezultatele fără o nouă scanare, cât timp obiectul există în pagina curentă:
+Re-run the script to resume from the cached results after an interruption or page reload. While the original page session remains open, you can export the report again with:
 
-```javascript
+```js
 window.dotaScan.exportCSV();
 ```
 
-## Configurație
+## Configuration
 
-Valorile din versiunea actuală a scriptului sunt:
+The current script uses the following settings:
 
-| Setare | Valoare | Rol |
+| Setting | Value | Purpose |
 | --- | --- | --- |
 | App ID | `570` | Dota 2 |
-| Context ID | `2` | Inventar Steam |
-| Monedă | `3` | EUR |
-| Țară | `RO` | România |
-| Pauză între prețuri | `7000 ms` | Reduce frecvența cererilor |
-| Reîncercări pentru HTTP 429 / 5xx | Până la 3 solicitări | Pauze progresive între încercări |
-| Salvare progres | `localStorage` | Persistă după reîncărcarea paginii |
+| Inventory context | `2` | Steam inventory |
+| Currency | `3` (EUR) | Market price requests |
+| Country | `RO` | Market price requests |
+| Delay between price requests | `7000 ms` | Reduces request frequency |
+| Retries on HTTP 429 / 5xx | Up to 3 attempts | Uses increasing delays |
+| Progress persistence | `localStorage` | Continues an interrupted scan |
 
-Steam poate aplica limite suplimentare; o scanare mare poate dura zeci de minute sau poate fi întreruptă de limitările serviciului.
+Steam may impose additional rate limits, and the scanner may need to be restarted later if those limits persist.
 
-## Structura CSV
+## CSV output
 
-| Coloană | Descriere |
+| Column | Description |
 | --- | --- |
-| `name` | Numele obiectului pe Steam Market |
-| `type` | Tipul / raritatea comunicată de Steam |
-| `quantity` | Numărul de exemplare vandabile |
-| `lowestEUR` | Cel mai mic preț afișat, în EUR |
-| `median` | Prețul median raportat de Steam |
-| `volume` | Volumul raportat de Steam |
+| `name` | Steam Market item name |
+| `type` | Steam-reported item type/rarity |
+| `quantity` | Number of marketable copies |
+| `lowestEUR` | Lowest listed buyer price in EUR |
+| `median` | Steam-reported median price, when provided |
+| `volume` | Steam-reported sales volume, when provided |
 | `grossEUR` | `lowestEUR × quantity` |
-| `estimatedNetEUR` | Suma netă estimată, ținând cont de cantitate |
-| `status` | `priced`, `no_data` sau `not_checked` |
-| `marketURL` | Link către pagina obiectului din Steam Market |
+| `estimatedNetEUR` | Estimated seller proceeds for the quantity |
+| `status` | `priced`, `no_data`, or `not_checked` |
+| `marketURL` | Item listing page on Steam Market |
 
-## Limitări și precizări
+## How valuation works
 
-- **Estimările nu reprezintă oferte de cumpărare sau vânzări garantate.** Prețul minim se poate modifica.
-- Estimarea netă folosește un calcul orientativ al comisioanelor Steam și Dota 2 (5% + 10%, cu comisioane minime și rotunjiri). Suma exactă se verifică la listarea unui item.
-- Prețurile salvate în `localStorage` **nu sunt actualizate automat** la reluarea scriptului; o evaluare nouă necesită ștergerea intenționată a cache-ului relevant.
-- Scriptul utilizează **EUR** și `country=RO`; pentru alte monede sau regiuni sunt necesare adaptări.
-- `marketable` nu este același lucru cu `tradable`.
-- Dacă Steam limitează cererile, scriptul se poate opri și va trebui relansat ulterior.
-- Nu introduce date de autentificare, parole sau coduri Steam Guard în script. Rulează doar cod pe care l-ai citit și înțeles.
-- Este un proiect neoficial, fără afiliere cu Valve sau Steam.
+The script requests price data from Steam Community Market and estimates the amount a seller might receive after the Steam fee (5%) and Dota 2 fee (10%), accounting approximately for minimum fees and rounding. These estimates are **not** guaranteed sale prices or exact proceeds. Check the final seller amount in Steam's listing interface before selling.
 
-## Exemplu de rezultat
+## Limitations
+
+- Lowest listed prices can change and do not guarantee an immediate buyer.
+- Cached prices **do not refresh automatically** when the scan is resumed; clear the scanner's relevant `localStorage` entry if you intentionally want a completely fresh valuation.
+- The default price parser assumes EUR-style market formatting and the configuration is set to Romania.
+- `marketable` and `tradable` are different Steam inventory properties.
+- Rate limits, temporary network failures, and changes to Steam endpoints can interrupt the scan.
+- This tool reads inventory and pricing data only; **it does not automate market listings**.
+- Never paste your Steam password, Steam Guard codes, or session tokens into untrusted scripts.
+
+## Example console output
 
 ```text
-Tipuri de evaluat: 395
-[50/395] 12.7% Net estimat evaluat: 20.38 EUR
-[395/395] 100.0% Net estimat evaluat: 25.92 EUR
-CSV exportat: 395 tipuri
+DOTA MARKET SCANNER 2.0
+Types to evaluate: 395
+[50/395] 12.7% — Estimated net: 20.38 EUR
+[395/395] 100.0% — Estimated net: 25.92 EUR
+CSV exported: 395 item types
 ```
 
-*Exemplul ilustrează o execuție anterioară; nu reprezintă valoarea inventarului altui utilizator.*
+The values above are illustrative results from a previous scan, not an expected value for other inventories.
 
-## Licență
+## Disclaimer
 
-Adaugă un fișier `LICENSE` dacă alegi să publici proiectul sub o licență open-source. Până atunci, nu presupune că este automat licențiat pentru reutilizare.
+Unofficial community utility. Not affiliated with, endorsed by, or maintained by Valve or Steam.
