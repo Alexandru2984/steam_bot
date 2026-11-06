@@ -380,7 +380,8 @@
     classifyDescription, makeCandidates, optimizeCandidates, makeCSV
   };
 
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  // Expose pure functionality for offline browser tests (no Node.js required).
+  if (root) root.dotaSmartSellCore = api;
 
   if (root && root.location && root.location.hostname === 'steamcommunity.com') {
     if (root.dotaSmartSell?.running) {
